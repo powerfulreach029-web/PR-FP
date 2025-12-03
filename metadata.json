@@ -1,0 +1,7 @@
+{
+  "name": "Assistant Pédagogique IA",
+  "description": "Un assistant intelligent pour les enseignants : génération de cours, analyse de ressources et tuteur vocal en temps réel.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
