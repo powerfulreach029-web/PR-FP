@@ -1,9 +1,10 @@
 import { GoogleGenAI, Modality, Type } from "@google/genai";
 import { LessonPlanRequest } from "../types";
 
-// Initialize the client
-// NOTE: API Key is assumed to be in process.env.API_KEY
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Initialize the client safely
+// The system guarantees process.env.API_KEY is available, but in some browser contexts 'process' might be undefined without a shim.
+const apiKey = (typeof process !== 'undefined' && process.env) ? process.env.API_KEY : '';
+const ai = new GoogleGenAI({ apiKey: apiKey || 'MISSING_KEY' });
 
 /**
  * Generates a lesson plan using gemini-2.5-flash
@@ -41,16 +42,20 @@ export const generateLessonPlan = async (request: LessonPlanRequest): Promise<st
     ## 5. ÉVALUATION ET SYNTHÈSE
   `;
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: prompt,
-    config: {
-      temperature: 0.5,
-      systemInstruction: "Tu es un concepteur pédagogique expert. Tes fiches sont complètes, prêtes à l'emploi et contiennent toujours des exemples concrets.",
-    }
-  });
-
-  return response.text || "Erreur lors de la génération du contenu.";
+  try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+          temperature: 0.5,
+          systemInstruction: "Tu es un concepteur pédagogique expert. Tes fiches sont complètes, prêtes à l'emploi et contiennent toujours des exemples concrets.",
+        }
+      });
+      return response.text || "Erreur lors de la génération du contenu.";
+  } catch (error) {
+      console.error("Gemini Generation Error:", error);
+      return "Une erreur est survenue lors de la communication avec l'IA. Vérifiez votre connexion ou votre clé API.";
+  }
 };
 
 /**
@@ -74,16 +79,20 @@ export const improveLessonFormatting = async (currentContent: string): Promise<s
     ${currentContent}
   `;
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: prompt,
-    config: {
-      temperature: 0.1, 
-      maxOutputTokens: 4000,
-    }
-  });
-
-  return response.text || currentContent;
+  try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+          temperature: 0.1, 
+          maxOutputTokens: 4000,
+        }
+      });
+      return response.text || currentContent;
+  } catch (error) {
+      console.error("Gemini Formatting Error:", error);
+      return currentContent;
+  }
 };
 
 /**
@@ -160,22 +169,26 @@ export const chatWithSearch = async (
  * Analyze an image using gemini-3-pro-preview
  */
 export const analyzeImageResource = async (base64Image: string, mimeType: string, prompt: string) => {
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
-    contents: {
-      parts: [
-        {
-          inlineData: {
-            mimeType: mimeType,
-            data: base64Image
-          }
-        },
-        { text: prompt }
-      ]
-    }
-  });
-
-  return response.text;
+  try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-pro-preview',
+        contents: {
+          parts: [
+            {
+              inlineData: {
+                mimeType: mimeType,
+                data: base64Image
+              }
+            },
+            { text: prompt }
+          ]
+        }
+      });
+      return response.text;
+  } catch (error) {
+      console.error("Vision Error:", error);
+      return "Erreur lors de l'analyse de l'image.";
+  }
 };
 
 /**
