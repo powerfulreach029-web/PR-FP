@@ -7,16 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script>
-      // Polyfill for process.env to prevent ReferenceError in browser environments
-      window.process = {
-        env: {
-          NODE_ENV: 'development',
-          // The API_KEY is injected by the environment, but we define the object to avoid crashes.
-          ...window.process?.env
-        }
-      };
-    </script>
     <style>
       :root {
         /* Default Colors (Will be overridden by JS) */

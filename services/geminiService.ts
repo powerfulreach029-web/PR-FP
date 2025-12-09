@@ -2,9 +2,17 @@ import { GoogleGenAI, Modality, Type } from "@google/genai";
 import { LessonPlanRequest } from "../types";
 
 // Initialize the client safely
-// The system guarantees process.env.API_KEY is available, but in some browser contexts 'process' might be undefined without a shim.
-const apiKey = (typeof process !== 'undefined' && process.env) ? process.env.API_KEY : '';
-const ai = new GoogleGenAI({ apiKey: apiKey || 'MISSING_KEY' });
+let apiKey = '';
+try {
+  // Use the global process.env.API_KEY.
+  // We use a try-catch block to handle environments where 'process' is not defined (like browsers without polyfills),
+  // while still allowing bundlers to replace 'process.env.API_KEY' with the actual string literal.
+  apiKey = process.env.API_KEY || '';
+} catch (e) {
+  console.warn("API Key access failed (process not defined), expected if not replaced by bundler.");
+}
+
+const ai = new GoogleGenAI({ apiKey: apiKey });
 
 /**
  * Generates a lesson plan using gemini-2.5-flash
