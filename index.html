@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
       :root {
         /* Default Colors (Will be overridden by JS) */
@@ -14,18 +15,21 @@
         --primary-hover: #4338ca;
         --primary-light: #eef2ff;
         --primary-text: #312e81;
-        --bg-main: #f8fafc;
-        --bg-card: #ffffff;
+        --bg-main: transparent; /* Changed to transparent to see the themes */
+        --bg-card: rgba(255, 255, 255, 0.65); /* Glass effect default */
+        --bg-glass-border: rgba(255, 255, 255, 0.4);
         --text-main: #1e293b;
         --text-muted: #64748b;
-        --border-color: #e2e8f0;
+        --border-color: rgba(226, 232, 240, 0.6);
+        --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
       }
 
       body {
-        font-family: 'Inter', sans-serif;
-        background-color: var(--bg-main);
+        font-family: 'Outfit', 'Inter', sans-serif; /* Plus moderne */
+        background-color: #f8fafc;
         color: var(--text-main);
-        transition: background-color 0.5s ease, color 0.5s ease;
+        transition: color 0.3s ease;
+        min-height: 100vh;
       }
 
       /* Hide scrollbar for horizontal scrolling areas */
@@ -37,11 +41,9 @@
           scrollbar-width: none;
       }
 
-      /* ANIMATIONS */
-      
-      /* Sky Mode Animation */
+      /* --- THEME CIEL NUAGEUX (AMÉLIORÉ) --- */
       .theme-sky-bg {
-        background: linear-gradient(180deg, #87CEEB 0%, #E0F7FA 100%);
+        background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
         position: fixed;
         top: 0;
         left: 0;
@@ -50,50 +52,44 @@
         z-index: -1;
         overflow: hidden;
       }
-      .sun {
+      
+      .sun-glow {
         position: absolute;
-        top: 50px;
-        right: 50px;
-        width: 80px;
-        height: 80px;
-        background: radial-gradient(circle, #FDB813 0%, #F57F20 100%);
+        top: -100px;
+        right: -100px;
+        width: 500px;
+        height: 500px;
+        background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 70%);
         border-radius: 50%;
-        box-shadow: 0 0 40px #FDB813;
-        animation: sunPulse 4s infinite alternate;
+        opacity: 0.6;
+        animation: sunFloat 10s infinite alternate ease-in-out;
       }
+
       .cloud {
         position: absolute;
-        background: rgba(255, 255, 255, 0.8);
-        border-radius: 50px;
-        animation: floatCloud 20s linear infinite;
+        background: rgba(255, 255, 255, 0.4);
+        border-radius: 100px;
+        filter: blur(8px);
+        animation: floatCloud linear infinite;
       }
-      .cloud::after, .cloud::before {
-        content: '';
-        position: absolute;
-        background: inherit;
-        border-radius: 50%;
-      }
-      /* Cloud Shapes */
-      .c1 { width: 120px; height: 40px; top: 100px; left: -120px; animation-duration: 35s; }
-      .c1::after { width: 50px; height: 50px; top: -25px; left: 15px; }
-      .c1::before { width: 60px; height: 60px; top: -35px; left: 50px; }
       
-      .c2 { width: 100px; height: 35px; top: 200px; left: -100px; animation-duration: 25s; animation-delay: 5s; opacity: 0.7;}
-      .c2::after { width: 40px; height: 40px; top: -20px; left: 10px; }
-      .c2::before { width: 50px; height: 50px; top: -30px; left: 40px; }
+      .c1 { width: 300px; height: 100px; top: 10%; left: -300px; animation-duration: 45s; opacity: 0.8; }
+      .c2 { width: 200px; height: 80px; top: 30%; left: -200px; animation-duration: 65s; animation-delay: 5s; opacity: 0.6; }
+      .c3 { width: 400px; height: 140px; top: 60%; left: -400px; animation-duration: 55s; animation-delay: 15s; opacity: 0.5; }
+      .c4 { width: 150px; height: 60px; top: 80%; left: -150px; animation-duration: 35s; animation-delay: 25s; opacity: 0.7; }
 
-      @keyframes sunPulse {
-        0% { transform: scale(1); box-shadow: 0 0 40px #FDB813; }
-        100% { transform: scale(1.1); box-shadow: 0 0 60px #FDB813; }
+      @keyframes sunFloat {
+        0% { transform: scale(1) translate(0,0); }
+        100% { transform: scale(1.1) translate(-20px, 20px); }
       }
       @keyframes floatCloud {
-        0% { left: -150px; }
-        100% { left: 100%; }
+        0% { transform: translateX(0); }
+        100% { transform: translateX(120vw); }
       }
 
-      /* Night Mode Animation */
+      /* --- THEME NUIT ÉTOILÉE (AMÉLIORÉ) --- */
       .theme-night-bg {
-        background: linear-gradient(180deg, #0f172a 0%, #312e81 100%);
+        background: linear-gradient(to bottom, #090b14 0%, #171d36 50%, #252a4a 100%);
         position: fixed;
         top: 0;
         left: 0;
@@ -102,47 +98,49 @@
         z-index: -1;
         overflow: hidden;
       }
+      
+      .nebula {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(80px);
+        opacity: 0.3;
+      }
+      .n1 { width: 600px; height: 600px; top: -100px; left: -100px; background: #4c1d95; animation: nebulaPulse 15s infinite alternate; }
+      .n2 { width: 500px; height: 500px; bottom: -100px; right: -100px; background: #1e3a8a; animation: nebulaPulse 20s infinite alternate-reverse; }
+
       .star {
         position: absolute;
         background: white;
         border-radius: 50%;
-        animation: twinkle 2s infinite ease-in-out;
+        animation: twinkle infinite ease-in-out;
       }
+
       @keyframes twinkle {
-        0%, 100% { opacity: 0.3; transform: scale(0.8); }
+        0%, 100% { opacity: 0.2; transform: scale(0.5); }
         50% { opacity: 1; transform: scale(1.2); box-shadow: 0 0 4px white; }
+      }
+      
+      @keyframes nebulaPulse {
+        0% { transform: scale(1); opacity: 0.2; }
+        100% { transform: scale(1.1); opacity: 0.4; }
+      }
+
+      /* Glass Classes */
+      .glass-panel {
+        background: var(--bg-card);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid var(--bg-glass-border);
+        box-shadow: var(--glass-shadow);
       }
 
       @media print {
-        @page {
-          margin: 2cm;
-          size: A4;
-        }
-        body {
-          background-color: white !important;
-          color: black !important;
-          -webkit-print-color-adjust: exact;
-        }
+        @page { margin: 2cm; size: A4; }
+        body { background-color: white !important; color: black !important; -webkit-print-color-adjust: exact; }
         .theme-sky-bg, .theme-night-bg { display: none !important; }
-        .no-print, header, footer, nav, button, .sticky {
-          display: none !important;
-        }
-        /* Ensure the lesson content is visible and formatted for print */
-        #lesson-content, #lesson-content * {
-          visibility: visible !important;
-          display: block !important;
-        }
-        #lesson-content {
-          position: absolute;
-          left: 0;
-          top: 0;
-          width: 100%;
-          margin: 0;
-          padding: 0;
-          box-shadow: none !important;
-          border: none !important;
-        }
-        /* Print typography adjustments */
+        .no-print, header, footer, nav, button, .sticky { display: none !important; }
+        #lesson-content, #lesson-content * { visibility: visible !important; display: block !important; }
+        #lesson-content { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 0; box-shadow: none !important; border: none !important; }
         h2 { page-break-before: auto; }
         p, li { orphans: 3; widows: 3; }
       }
