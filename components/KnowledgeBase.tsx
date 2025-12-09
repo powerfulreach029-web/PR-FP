@@ -119,7 +119,12 @@ const KnowledgeBase: React.FC = () => {
 
     try {
       // Prepare history for API
-      const history = messages.map(m => {
+      // CRITICAL FIX: We must exclude the initial static welcome message (id: '1')
+      // because Gemini API expects the conversation to start with a User message or System Instruction,
+      // not a Model message.
+      const history = messages
+        .filter(m => m.id !== '1')
+        .map(m => {
           const parts: any[] = [{ text: m.text }];
           // Note: In a real app, we might need to persist past attachments in history context.
           // For simplicity here, we only send text history + current attachment.
@@ -153,11 +158,11 @@ const KnowledgeBase: React.FC = () => {
       setMessages(prev => [...prev, botMessage]);
 
     } catch (error) {
-      console.error(error);
+      console.error("KnowledgeBase Error:", error);
       const errorMessage: ChatMessage = {
         id: Date.now().toString(),
         role: 'model',
-        text: "Désolé, une erreur est survenue lors de la recherche."
+        text: "Désolé, une erreur est survenue lors de la recherche. Vérifiez votre connexion."
       };
       setMessages(prev => [...prev, errorMessage]);
     } finally {

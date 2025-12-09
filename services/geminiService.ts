@@ -1,15 +1,20 @@
 import { GoogleGenAI, Modality, Type } from "@google/genai";
 import { LessonPlanRequest } from "../types";
 
-// Initialize the client safely
-let apiKey = '';
-try {
-  // Use the global process.env.API_KEY.
-  // We use a try-catch block to handle environments where 'process' is not defined (like browsers without polyfills),
-  // while still allowing bundlers to replace 'process.env.API_KEY' with the actual string literal.
-  apiKey = process.env.API_KEY || '';
-} catch (e) {
-  console.warn("API Key access failed (process not defined), expected if not replaced by bundler.");
+// Safe API Key retrieval function that works in both browser and typical build environments
+const getApiKey = () => {
+  try {
+    return process.env.API_KEY || '';
+  } catch (e) {
+    // Falls back to empty string if 'process' is not defined (prevents ReferenceError)
+    return '';
+  }
+};
+
+const apiKey = getApiKey();
+// Warn if key is missing, this is the #1 cause of "AI not working"
+if (!apiKey) {
+    console.warn("Gemini API Key is missing! Check your process.env.API_KEY configuration.");
 }
 
 const ai = new GoogleGenAI({ apiKey: apiKey });
@@ -157,6 +162,7 @@ export const chatWithSearch = async (
   }
 
   // Combine history with new message
+  // Note: 'history' here must only contain 'user' or 'model' roles.
   const contents = [
       ...history,
       { role: 'user', parts: userParts }
