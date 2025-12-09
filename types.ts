@@ -45,6 +45,7 @@ export interface SavedLesson {
   id: string;
   subject: string;
   level: SchoolLevel;
+  grade?: string;
   content: string;
   createdAt: number;
   lastModified: number;

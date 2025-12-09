@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { generateLessonPlan, generateSpeech, getLessonTopicSuggestions, improveLessonFormatting } from '../services/geminiService';
 import { decodeAudioData } from '../services/audioUtils';
@@ -67,7 +68,7 @@ const LessonBuilder: React.FC<LessonBuilderProps> = ({ initialLesson, onLessonSa
       setFormData({
         subject: initialLesson.subject,
         level: initialLesson.level,
-        grade: '', // If loading old data without grade, will default to empty, handled in render if needed or data migration
+        grade: initialLesson.grade || GRADES_BY_LEVEL[initialLesson.level][0],
         duration: 60,
         objective: LessonObjective.DISCOVERY,
         method: PedagogicalMethod.EXPOSITORY

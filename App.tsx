@@ -7,7 +7,7 @@ import SavedLessons from './components/SavedLessons';
 import SettingsPanel from './components/SettingsPanel';
 import Login from './components/Auth/Login';
 import Signup from './components/Auth/Signup';
-import { BookOpen, Mic, MessageSquare, Image as ImageIcon, FolderOpen, Settings, LogOut } from 'lucide-react';
+import { BookOpen, Mic, MessageSquare, Image as ImageIcon, FolderOpen, Settings, LogOut, Sparkles } from 'lucide-react';
 import { SavedLesson, ThemeSettings, AccentColor, ThemeMode } from './types';
 import { useAuth } from './AuthContext';
 import { supabase } from './supabaseClient';
@@ -148,8 +148,11 @@ const App: React.FC = () => {
   // AUTH LOADING STATE
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--bg-main)]">
-        <div className="w-10 h-10 border-4 border-[var(--primary)] border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-slate-500 font-medium animate-pulse">Chargement de l'assistant...</p>
+        </div>
       </div>
     );
   }
@@ -157,27 +160,31 @@ const App: React.FC = () => {
   // LOGIN / SIGNUP VIEW
   if (!user) {
     return (
-       <div className="min-h-screen flex flex-col font-sans relative items-center justify-center p-4">
-          {/* Backgrounds */}
-          <div className="theme-sky-bg">
-             <div className="sun"></div>
-             <div className="cloud c1"></div>
-             <div className="cloud c2"></div>
-          </div>
-          
-          <div className="mb-8 text-center z-10">
-             <div className="bg-indigo-600 p-3 rounded-xl inline-block shadow-lg mb-4">
-                <BookOpen className="w-8 h-8 text-white" />
-             </div>
-             <h1 className="text-4xl font-bold text-slate-800 tracking-tight">Assistant Pédagogique IA</h1>
-             <p className="text-slate-600 mt-2 text-lg">Votre compagnon pour préparer la classe.</p>
+       <div className="min-h-screen w-full flex items-center justify-center p-4 relative overflow-hidden bg-slate-900">
+          {/* Modern Animated Gradient Background */}
+          <div className="absolute inset-0 w-full h-full">
+            <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-purple-600/30 blur-[100px] animate-pulse"></div>
+            <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-600/30 blur-[100px] animate-pulse delay-700"></div>
+            <div className="absolute top-[20%] right-[20%] w-[30%] h-[30%] rounded-full bg-blue-500/20 blur-[80px] animate-pulse delay-1000"></div>
           </div>
 
-          <div className="z-10 w-full max-w-md">
+          {/* Floating Shapes */}
+          <div className="absolute top-10 left-10 text-white/10 animate-bounce delay-1000 duration-[3000ms]">
+             <BookOpen className="w-24 h-24 rotate-12" />
+          </div>
+          <div className="absolute bottom-10 right-10 text-white/10 animate-bounce delay-500 duration-[4000ms]">
+             <Sparkles className="w-32 h-32 -rotate-12" />
+          </div>
+          
+          <div className="z-10 w-full max-w-md animate-in fade-in zoom-in-95 duration-500">
              {authView === 'login' 
                ? <Login onSwitchToSignup={() => setAuthView('signup')} /> 
                : <Signup onSwitchToLogin={() => setAuthView('login')} />
              }
+          </div>
+          
+          <div className="absolute bottom-4 text-slate-500 text-xs text-center w-full z-10">
+            © 2024 Assistant Pédagogique IA - Propulsé par Gemini 2.5
           </div>
        </div>
     );
@@ -205,7 +212,7 @@ const App: React.FC = () => {
       <header className="bg-[var(--bg-card)] border-b border-[var(--border-color)] sticky top-0 z-20 no-print shadow-sm transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-[var(--primary)] p-2 rounded-lg shrink-0 transition-colors duration-300">
+            <div className="bg-[var(--primary)] p-2 rounded-lg shrink-0 transition-colors duration-300 shadow-md">
               <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </div>
             <h1 className="text-lg sm:text-xl font-bold text-[var(--text-main)] tracking-tight truncate hidden sm:block">Assistant Pédagogique</h1>
@@ -250,7 +257,7 @@ const App: React.FC = () => {
               onClick={() => setActiveTab(Tab.GENERATOR)}
               className={`flex items-center gap-2 px-3 sm:px-4 py-2 text-sm font-medium rounded-full sm:rounded-lg transition-all border sm:border-transparent ${
                 activeTab === Tab.GENERATOR
-                  ? 'bg-[var(--primary)] text-white shadow-md'
+                  ? 'bg-[var(--primary)] text-white shadow-md transform scale-105'
                   : 'bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border-color)] hover:text-[var(--text-main)] hover:bg-[var(--bg-card)]'
               }`}
             >
@@ -262,7 +269,7 @@ const App: React.FC = () => {
               onClick={() => setActiveTab(Tab.SAVED)}
               className={`flex items-center gap-2 px-3 sm:px-4 py-2 text-sm font-medium rounded-full sm:rounded-lg transition-all border sm:border-transparent ${
                 activeTab === Tab.SAVED
-                  ? 'bg-[var(--primary)] text-white shadow-md'
+                  ? 'bg-[var(--primary)] text-white shadow-md transform scale-105'
                   : 'bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border-color)] hover:text-[var(--text-main)] hover:bg-[var(--bg-card)]'
               }`}
             >
@@ -274,7 +281,7 @@ const App: React.FC = () => {
               onClick={() => setActiveTab(Tab.LIVE)}
               className={`flex items-center gap-2 px-3 sm:px-4 py-2 text-sm font-medium rounded-full sm:rounded-lg transition-all border sm:border-transparent ${
                 activeTab === Tab.LIVE
-                  ? 'bg-[var(--primary)] text-white shadow-md'
+                  ? 'bg-[var(--primary)] text-white shadow-md transform scale-105'
                   : 'bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border-color)] hover:text-[var(--text-main)] hover:bg-[var(--bg-card)]'
               }`}
             >
@@ -286,7 +293,7 @@ const App: React.FC = () => {
               onClick={() => setActiveTab(Tab.CHAT)}
               className={`flex items-center gap-2 px-3 sm:px-4 py-2 text-sm font-medium rounded-full sm:rounded-lg transition-all border sm:border-transparent ${
                 activeTab === Tab.CHAT
-                  ? 'bg-[var(--primary)] text-white shadow-md'
+                  ? 'bg-[var(--primary)] text-white shadow-md transform scale-105'
                   : 'bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border-color)] hover:text-[var(--text-main)] hover:bg-[var(--bg-card)]'
               }`}
             >
@@ -298,7 +305,7 @@ const App: React.FC = () => {
               onClick={() => setActiveTab(Tab.VISION)}
               className={`flex items-center gap-2 px-3 sm:px-4 py-2 text-sm font-medium rounded-full sm:rounded-lg transition-all border sm:border-transparent ${
                 activeTab === Tab.VISION
-                  ? 'bg-[var(--primary)] text-white shadow-md'
+                  ? 'bg-[var(--primary)] text-white shadow-md transform scale-105'
                   : 'bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border-color)] hover:text-[var(--text-main)] hover:bg-[var(--bg-card)]'
               }`}
             >

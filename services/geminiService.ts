@@ -148,7 +148,7 @@ export const generateSpeech = async (text: string): Promise<ArrayBuffer | null> 
 
 /**
  * Chat with Search Grounding using gemini-2.5-flash
- * Supports file attachments
+ * Supports file attachments and fallback if search fails
  */
 export const chatWithSearch = async (
   history: { role: string; parts: { text: string }[] }[],
@@ -168,15 +168,34 @@ export const chatWithSearch = async (
       { role: 'user', parts: userParts }
   ];
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: contents,
-    config: {
-      tools: [{ googleSearch: {} }],
-    },
-  });
+  try {
+    // Attempt 1: Try with Google Search Tool
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: contents,
+      config: {
+        tools: [{ googleSearch: {} }],
+      },
+    });
+    return response;
 
-  return response;
+  } catch (error) {
+    console.warn("Search Grounding failed (likely API permission or config issue). Falling back to standard chat.", error);
+    
+    // Attempt 2: Fallback to standard chat without tools
+    // This ensures the user gets an answer even if Search Grounding is not enabled on the API key
+    try {
+        const fallbackResponse = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: contents,
+            // No tools config here
+        });
+        return fallbackResponse;
+    } catch (fallbackError) {
+        console.error("Fallback chat also failed:", fallbackError);
+        throw fallbackError; // Rethrow original error if both fail
+    }
+  }
 };
 
 /**
