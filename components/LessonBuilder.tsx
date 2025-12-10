@@ -558,7 +558,7 @@ const LessonBuilder: React.FC<LessonBuilderProps> = ({ initialLesson, onLessonSa
             disabled={loading}
             className="w-full mt-6 bg-gradient-to-r from-[var(--primary)] to-[var(--primary-hover)] text-white font-bold py-4 rounded-xl shadow-lg shadow-[var(--primary)]/30 hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 text-lg disabled:opacity-70 disabled:cursor-not-allowed"
             >
-            {loading ? <><Loader2 className="w-6 h-6 animate-spin" /> Conception...</> : <>Générer avec Gemini <Sparkles className="w-5 h-5 text-yellow-300" /></>}
+            {loading ? <><Loader2 className="w-6 h-6 animate-spin" /> Conception...</> : <>Générer votre fiche <Sparkles className="w-5 h-5 text-yellow-300" /></>}
             </button>
         </form>
       </div>
