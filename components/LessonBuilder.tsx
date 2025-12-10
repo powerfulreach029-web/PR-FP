@@ -266,10 +266,11 @@ const LessonBuilder: React.FC<LessonBuilderProps> = ({ initialLesson, onLessonSa
   const handleExportPDF = () => {
     if (!result) return;
     if (!(window as any).html2pdf) {
-      alert("La librairie PDF n'est pas encore chargée.");
+      alert("La librairie PDF n'est pas encore chargée. Veuillez patienter.");
       return;
     }
     setDownloadingPdf(true);
+    // If in edit mode, switch to preview then generate to ensure DOM exists
     if (viewMode === 'edit') {
       setViewMode('preview');
       setTimeout(() => generatePdf(), 100);
@@ -278,17 +279,69 @@ const LessonBuilder: React.FC<LessonBuilderProps> = ({ initialLesson, onLessonSa
     }
   };
 
-  const generatePdf = () => {
+  const generatePdf = async () => {
     const element = document.getElementById('lesson-content');
-    if (!element) { setDownloadingPdf(false); return; }
-    const opt = {
-      margin: [10, 10, 10, 10], 
-      filename: `Cours_${(formData.subject || 'lesson').replace(/\s+/g, '_')}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, logging: false },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
-    (window as any).html2pdf().set(opt).from(element).save().then(() => setDownloadingPdf(false));
+    if (!element) { 
+        setDownloadingPdf(false); 
+        return; 
+    }
+
+    try {
+        // 1. Clone element to sanitize styles for PDF
+        const clone = element.cloneNode(true) as HTMLElement;
+        
+        // 2. Force print-friendly styles on the clone
+        // Remove glass effects and transparency
+        clone.style.background = 'white';
+        clone.style.color = 'black';
+        clone.style.backdropFilter = 'none';
+        clone.style.boxShadow = 'none';
+        clone.style.border = 'none';
+        
+        // Reset positioning/margins that might cause blank pages
+        clone.style.margin = '0';
+        clone.style.padding = '40px'; 
+        clone.style.maxWidth = '100%';
+        clone.style.width = '800px'; // Fixed width for A4 consistency
+        clone.style.height = 'auto';
+        clone.style.overflow = 'visible';
+
+        // 3. Mount clone in a hidden wrapper at the top of the document
+        // This prevents scroll offset issues which cause blank pages
+        const wrapper = document.createElement('div');
+        wrapper.style.position = 'absolute';
+        wrapper.style.top = '0';
+        wrapper.style.left = '0';
+        wrapper.style.zIndex = '-9999'; // Behind everything
+        wrapper.style.width = '800px';
+        wrapper.appendChild(clone);
+        document.body.appendChild(wrapper);
+
+        const opt = {
+            margin: [10, 10, 10, 10], 
+            filename: `Cours_${(formData.subject || 'lesson').replace(/\s+/g, '_')}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { 
+                scale: 2, 
+                useCORS: true, 
+                scrollY: 0, // VITAL: Forces capture from top, fixing cutoff/blank space
+                windowWidth: 800 // Matches our wrapper
+            },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        // 4. Generate and Save
+        await (window as any).html2pdf().set(opt).from(clone).save();
+        
+        // 5. Cleanup
+        document.body.removeChild(wrapper);
+
+    } catch (e) {
+        console.error("PDF Generation Error:", e);
+        alert("Une erreur est survenue lors de la création du PDF.");
+    } finally {
+        setDownloadingPdf(false);
+    }
   };
 
   const handleReadAloud = async () => {
