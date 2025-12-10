@@ -291,29 +291,32 @@ const LessonBuilder: React.FC<LessonBuilderProps> = ({ initialLesson, onLessonSa
         const clone = element.cloneNode(true) as HTMLElement;
         
         // 2. Force print-friendly styles on the clone
-        // Remove glass effects and transparency
+        // We set a fixed width (~750px) which is safe for A4
+        const contentWidth = '750px';
+
         clone.style.background = 'white';
         clone.style.color = 'black';
         clone.style.backdropFilter = 'none';
         clone.style.boxShadow = 'none';
         clone.style.border = 'none';
         
-        // Reset positioning/margins that might cause blank pages
-        clone.style.margin = '0';
-        clone.style.padding = '40px'; 
-        clone.style.maxWidth = '100%';
-        clone.style.width = '800px'; // Fixed width for A4 consistency
+        // CRITICAL FIXES FOR ALIGNMENT AND CUTOFF
+        clone.style.margin = '0'; 
+        clone.style.padding = '20px'; // Reduced padding
+        clone.style.maxWidth = contentWidth;
+        clone.style.width = contentWidth;
         clone.style.height = 'auto';
         clone.style.overflow = 'visible';
+        clone.style.boxSizing = 'border-box'; // Ensure padding doesn't affect total width
 
-        // 3. Mount clone in a hidden wrapper at the top of the document
-        // This prevents scroll offset issues which cause blank pages
+        // 3. Mount clone in a hidden wrapper at Top-Left
         const wrapper = document.createElement('div');
         wrapper.style.position = 'absolute';
         wrapper.style.top = '0';
         wrapper.style.left = '0';
-        wrapper.style.zIndex = '-9999'; // Behind everything
-        wrapper.style.width = '800px';
+        wrapper.style.zIndex = '-9999';
+        wrapper.style.width = contentWidth;
+        wrapper.style.background = 'white';
         wrapper.appendChild(clone);
         document.body.appendChild(wrapper);
 
@@ -324,8 +327,11 @@ const LessonBuilder: React.FC<LessonBuilderProps> = ({ initialLesson, onLessonSa
             html2canvas: { 
                 scale: 2, 
                 useCORS: true, 
-                scrollY: 0, // VITAL: Forces capture from top, fixing cutoff/blank space
-                windowWidth: 800 // Matches our wrapper
+                scrollY: 0, 
+                scrollX: 0, // Fix horizontal shift
+                windowWidth: 800, 
+                x: 0, // Force capture start X
+                y: 0  // Force capture start Y
             },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
