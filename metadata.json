@@ -1,0 +1,5 @@
+{
+  "name": "PR Fiche Pédagogique",
+  "description": "Assistant IA de conception de fiches de préparation pédagogique conforme aux standards de l'Éducation Nationale française (APC).",
+  "requestFramePermissions": []
+}
