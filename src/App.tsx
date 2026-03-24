@@ -35,9 +35,26 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI } from "@google/genai";
 import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
 // @ts-ignore
 import html2pdf from 'html2pdf.js';
+import { auth, db, googleProvider } from './firebase';
+import { 
+  onAuthStateChanged, 
+  signInWithPopup, 
+  signOut,
+  User
+} from 'firebase/auth';
+import { 
+  collection, 
+  addDoc, 
+  query, 
+  where, 
+  getDocs, 
+  orderBy,
+  Timestamp,
+  deleteDoc,
+  doc
+} from 'firebase/firestore';
 
 // Constants
 const LEVELS = [
@@ -178,6 +195,98 @@ export default function App() {
   const [teacherInfo, setTeacherInfo] = useState<TeacherInfo>({ name: '', school: '', specialty: '' });
   const [themeColor, setThemeColor] = useState('green');
   const [isDarkMode, setIsDarkMode] = useState(false);
+
+  // Firebase Auth State
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [savedPlans, setSavedPlans] = useState<LessonPlan[]>([]);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setIsAuthLoading(false);
+      if (currentUser) {
+        loadUserPlans(currentUser.uid);
+      } else {
+        setSavedPlans([]);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const loadUserPlans = async (userId: string) => {
+    try {
+      const q = query(
+        collection(db, 'fiches'),
+        where('userId', '==', userId),
+        orderBy('timestamp', 'desc')
+      );
+      const querySnapshot = await getDocs(q);
+      const plans = querySnapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id
+      })) as LessonPlan[];
+      setSavedPlans(plans);
+      setHistory(plans); // Sync with local history for now
+    } catch (error) {
+      console.error("Error loading plans:", error);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (error) {
+      console.error("Login error:", error);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [showEmailAuth, setShowEmailAuth] = useState(false);
+  const [authError, setAuthError] = useState('');
+
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+    try {
+      if (authMode === 'signup') {
+        const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(userCredential.user, { displayName: email.split('@')[0] });
+      } else {
+        const { signInWithEmailAndPassword } = await import('firebase/auth');
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+      setShowEmailAuth(false);
+      setEmail('');
+      setPassword('');
+    } catch (error: any) {
+      console.error("Email auth error:", error);
+      setAuthError(error.message);
+    }
+  };
+
+  const handleDeletePlan = async (planId: string) => {
+    if (!user) return;
+    if (!confirm("Voulez-vous vraiment supprimer cette fiche ?")) return;
+    
+    try {
+      await deleteDoc(doc(db, 'fiches', planId));
+      loadUserPlans(user.uid);
+    } catch (error) {
+      console.error("Error deleting plan:", error);
+    }
+  };
 
   // Form state (CRAFT Method)
   const [context, setContext] = useState('');
@@ -511,6 +620,21 @@ export default function App() {
       };
 
       setCurrentPlan(newPlan);
+      
+      // Save to Firestore if user is logged in
+      if (user) {
+        try {
+          await addDoc(collection(db, 'fiches'), {
+            ...newPlan,
+            userId: user.uid,
+            timestamp: Timestamp.now()
+          });
+          loadUserPlans(user.uid);
+        } catch (dbError) {
+          console.error("Error saving to Firestore:", dbError);
+        }
+      }
+
       setHistory(prev => [newPlan, ...prev]);
       setIsEditingPlan(false);
     } catch (error) {
@@ -564,10 +688,17 @@ export default function App() {
           </button>
           <button
             onClick={() => { setActiveTab('history'); setSidebarOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'history' ? `bg-${themeClass}-50 text-${themeClass}-700 font-medium` : 'text-slate-500 hover:bg-slate-50'}`}
+            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${activeTab === 'history' ? `bg-${themeClass}-50 text-${themeClass}-700 font-medium` : 'text-slate-500 hover:bg-slate-50'}`}
           >
-            <History size={20} />
-            Historique
+            <div className="flex items-center gap-3">
+              <History size={20} />
+              Historique
+            </div>
+            {savedPlans.length > 0 && (
+              <span className={`px-2 py-0.5 bg-${themeClass}-100 text-${themeClass}-700 text-[10px] font-bold rounded-full`}>
+                {savedPlans.length}
+              </span>
+            )}
           </button>
           <button
             onClick={() => { setActiveTab('settings'); setSidebarOpen(false); }}
@@ -579,13 +710,101 @@ export default function App() {
         </nav>
 
         <div className={`p-4 border-t ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
-          <div className={`${isDarkMode ? 'bg-slate-700/50' : 'bg-slate-50'} rounded-xl p-4`}>
-            <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-2">Statut IA</p>
-            <div className={`flex items-center gap-2 text-sm text-${themeClass}-600 font-medium`}>
-              <div className={`w-2 h-2 bg-${themeClass}-500 rounded-full animate-pulse`} />
-              Gemini 3.1 Pro Actif
+          {!user ? (
+            <div className="space-y-4">
+              <div className={`${isDarkMode ? 'bg-slate-700/50' : 'bg-slate-50'} rounded-xl p-4`}>
+                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-2">Sauvegarde Cloud</p>
+                <p className="text-[10px] text-slate-400 leading-tight">Connectez-vous pour sauvegarder vos fiches automatiquement.</p>
+              </div>
+              
+              {!showEmailAuth ? (
+                <div className="space-y-2">
+                  <button
+                    onClick={handleGoogleLogin}
+                    className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 transition-all shadow-sm`}
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24">
+                      <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                      <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                      <path fill="currentColor" d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.84z" />
+                      <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 12-4.53z" />
+                    </svg>
+                    Google
+                  </button>
+                  <button
+                    onClick={() => setShowEmailAuth(true)}
+                    className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-${themeClass}-600 text-white font-bold hover:bg-${themeClass}-700 transition-all shadow-lg shadow-${themeClass}-500/20`}
+                  >
+                    <Send size={18} />
+                    Email
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleEmailAuth} className="space-y-3 animate-in fade-in slide-in-from-bottom-2">
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Email"
+                    required
+                    className={`w-full px-3 py-2 rounded-lg border text-sm ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-200'} outline-none`}
+                  />
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Mot de passe"
+                    required
+                    className={`w-full px-3 py-2 rounded-lg border text-sm ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-200'} outline-none`}
+                  />
+                  {authError && <p className="text-[10px] text-red-500 font-medium">{authError}</p>}
+                  <div className="flex gap-2">
+                    <button
+                      type="submit"
+                      className={`flex-1 py-2 rounded-lg bg-${themeClass}-600 text-white text-xs font-bold hover:bg-${themeClass}-700 transition-all`}
+                    >
+                      {authMode === 'login' ? 'Connexion' : 'Inscription'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowEmailAuth(false)}
+                      className="px-3 py-2 rounded-lg bg-slate-100 text-slate-500 text-xs hover:bg-slate-200 transition-all"
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}
+                    className="w-full text-center text-[10px] text-slate-500 hover:text-emerald-600 font-bold"
+                  >
+                    {authMode === 'login' ? "Pas de compte ? S'inscrire" : "Déjà un compte ? Connexion"}
+                  </button>
+                </form>
+              )}
             </div>
-          </div>
+          ) : (
+            <div className={`flex items-center gap-3 p-3 ${isDarkMode ? 'bg-slate-700/30' : 'bg-slate-50'} rounded-xl`}>
+              {user.photoURL ? (
+                <img src={user.photoURL} alt={user.displayName || ''} className="w-10 h-10 rounded-full border-2 border-white shadow-sm" />
+              ) : (
+                <div className={`w-10 h-10 rounded-full bg-${themeClass}-100 flex items-center justify-center text-${themeClass}-600`}>
+                  <Users size={20} />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-bold truncate ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
+                  {user.displayName || 'Utilisateur'}
+                </p>
+                <button 
+                  onClick={handleLogout}
+                  className="text-[10px] text-slate-500 hover:text-red-500 font-bold uppercase tracking-wider transition-colors"
+                >
+                  Déconnexion
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </aside>
 
@@ -1018,39 +1237,70 @@ export default function App() {
                 animate={{ opacity: 1 }}
                 className="grid grid-cols-1 md:grid-cols-2 gap-6"
               >
-                {history.length === 0 ? (
+                {!user ? (
+                  <div className="col-span-full py-20 text-center space-y-6">
+                    <div className={`w-20 h-20 ${isDarkMode ? 'bg-slate-800 text-slate-600' : 'bg-slate-100 text-slate-400'} rounded-full flex items-center justify-center mx-auto`}>
+                      <Users size={32} />
+                    </div>
+                    <div className="max-w-sm mx-auto">
+                      <h4 className={`text-lg font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-800'} mb-2`}>Historique non synchronisé</h4>
+                      <p className="text-slate-500 text-sm mb-6">Connectez-vous avec Google pour sauvegarder vos fiches de préparation et y accéder depuis n'importe quel appareil.</p>
+                      <button
+                        onClick={handleGoogleLogin}
+                        className={`inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-${themeClass}-600 text-white font-bold hover:bg-${themeClass}-700 transition-all shadow-lg shadow-${themeClass}-500/20`}
+                      >
+                        <Users size={18} />
+                        Se connecter avec Google
+                      </button>
+                    </div>
+                  </div>
+                ) : history.length === 0 ? (
                   <div className="col-span-full py-20 text-center space-y-4">
                     <div className={`w-16 h-16 ${isDarkMode ? 'bg-slate-800 text-slate-600' : 'bg-slate-100 text-slate-400'} rounded-full flex items-center justify-center mx-auto`}>
                       <History size={32} />
                     </div>
-                    <p className="text-slate-500 font-medium">Aucune fiche générée pour le moment.</p>
+                    <p className="text-slate-500 font-medium">Aucune fiche sauvegardée dans le cloud.</p>
                   </div>
                 ) : (
                   history.map((plan) => (
-                    <button
+                    <div
                       key={plan.id}
-                      onClick={() => {
-                        setCurrentPlan(plan);
-                        setActiveTab('generator');
-                        setIsEditingPlan(false);
-                      }}
-                      className={`${isDarkMode ? 'bg-slate-800 border-slate-700 hover:border-slate-500' : 'bg-white border-slate-200 hover:border-emerald-500'} p-6 rounded-2xl border text-left hover:shadow-md transition-all group`}
+                      className={`group relative ${isDarkMode ? 'bg-slate-800 border-slate-700 hover:border-slate-500' : 'bg-white border-slate-200 hover:border-emerald-500'} p-6 rounded-2xl border text-left hover:shadow-md transition-all`}
                     >
                       <div className="flex justify-between items-start mb-4">
                         <span className={`${isDarkMode ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'} px-2 py-1 text-[10px] font-bold rounded uppercase`}>
                           {plan.level}
                         </span>
-                        <span className="text-[10px] text-slate-400 font-medium">
-                          {new Date(plan.timestamp).toLocaleDateString()}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            {new Date(plan.timestamp).toLocaleDateString()}
+                          </span>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); handleDeletePlan(plan.id); }}
+                            className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                          >
+                            <AlertCircle size={14} className="rotate-45" />
+                          </button>
+                        </div>
                       </div>
-                      <h4 className={`font-bold ${isDarkMode ? 'text-slate-100 group-hover:text-emerald-400' : 'text-slate-800 group-hover:text-emerald-600'} transition-colors mb-2`}>{plan.title}</h4>
-                      <p className="text-xs text-slate-500 line-clamp-2">{plan.objectives[0]}</p>
-                      <div className={`mt-4 flex items-center justify-between text-${themeClass}-600 font-bold text-xs`}>
-                        Voir la fiche
-                        <ChevronRight size={14} />
-                      </div>
-                    </button>
+                      <button
+                        onClick={() => {
+                          setCurrentPlan(plan);
+                          setActiveTab('generator');
+                          setIsEditingPlan(false);
+                        }}
+                        className="w-full text-left"
+                      >
+                        <h4 className={`font-bold ${isDarkMode ? 'text-slate-100 group-hover:text-emerald-400' : 'text-slate-800 group-hover:text-emerald-600'} transition-colors mb-2`}>
+                          {plan.title}
+                        </h4>
+                        <p className="text-xs text-slate-500 line-clamp-2">{plan.objectives[0]}</p>
+                        <div className={`mt-4 flex items-center justify-between text-${themeClass}-600 font-bold text-xs`}>
+                          Charger la fiche
+                          <ChevronRight size={14} />
+                        </div>
+                      </button>
+                    </div>
                   ))
                 )}
               </motion.div>
