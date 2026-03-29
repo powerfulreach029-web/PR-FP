@@ -38,18 +38,20 @@ import html2canvas from 'html2canvas';
 // @ts-ignore
 import html2pdf from 'html2pdf.js';
 import { auth, db, googleProvider } from './firebase';
-import { 
-  onAuthStateChanged, 
-  signInWithPopup, 
+import {
+  onAuthStateChanged,
+  signInWithPopup,
   signOut,
   User
 } from 'firebase/auth';
-import { 
-  collection, 
-  addDoc, 
-  query, 
-  where, 
-  getDocs, 
+import {
+  collection,
+  addDoc,
+  query,
+  where,
+  getDocs,
+  getDoc,
+  setDoc,
   orderBy,
   Timestamp,
   deleteDoc,
@@ -207,8 +209,19 @@ export default function App() {
       setIsAuthLoading(false);
       if (currentUser) {
         loadUserPlans(currentUser.uid);
+        loadUserSettings(currentUser.uid);
       } else {
         setSavedPlans([]);
+        // Local preference loading if not logged in
+        const localSettings = localStorage.getItem('teacher_settings');
+        if (localSettings) {
+          try {
+            const parsed = JSON.parse(localSettings);
+            setTeacherInfo(parsed.teacherInfo || { name: '', school: '', specialty: '' });
+            setThemeColor(parsed.themeColor || 'green');
+            setIsDarkMode(parsed.isDarkMode || false);
+          } catch (e) { console.error("Error parsing local settings", e); }
+        }
       }
     });
     return () => unsubscribe();
@@ -218,20 +231,70 @@ export default function App() {
     try {
       const q = query(
         collection(db, 'fiches'),
-        where('userId', '==', userId),
-        orderBy('timestamp', 'desc')
+        where('userId', '==', userId)
       );
       const querySnapshot = await getDocs(q);
-      const plans = querySnapshot.docs.map(doc => ({
-        ...doc.data(),
-        id: doc.id
-      })) as LessonPlan[];
+      const plans = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        let ts = data.timestamp;
+        // Convert Firestore Timestamp to number if applicable
+        if (ts && typeof ts === 'object' && typeof ts.toMillis === 'function') {
+          ts = ts.toMillis();
+        }
+        return {
+          ...data,
+          id: doc.id,
+          timestamp: ts || Date.now()
+        };
+      }) as LessonPlan[];
+
+      // Client-side sorting
+      plans.sort((a, b) => b.timestamp - a.timestamp);
+
       setSavedPlans(plans);
-      setHistory(plans); // Sync with local history for now
-    } catch (error) {
+      setHistory(plans);
+    } catch (error: any) {
       console.error("Error loading plans:", error);
     }
   };
+
+  const loadUserSettings = async (userId: string) => {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        if (data.teacherInfo) setTeacherInfo(data.teacherInfo);
+        if (data.themeColor) setThemeColor(data.themeColor);
+        if (data.isDarkMode !== undefined) setIsDarkMode(data.isDarkMode);
+      }
+    } catch (error) {
+      console.error("Error loading user settings:", error);
+    }
+  };
+
+  const saveUserSettings = async (userId: string, settings: any) => {
+    try {
+      await setDoc(doc(db, 'users', userId), {
+        ...settings,
+        lastUpdated: Timestamp.now()
+      }, { merge: true });
+    } catch (error) {
+      console.error("Error saving user settings:", error);
+    }
+  };
+
+  // Sync settings to Firestore or LocalStorage
+  useEffect(() => {
+    const settings = { teacherInfo, themeColor, isDarkMode };
+    if (user) {
+      const timeoutId = setTimeout(() => {
+        saveUserSettings(user.uid, settings);
+      }, 1000); // Debounce to avoid too many writes
+      return () => clearTimeout(timeoutId);
+    } else {
+      localStorage.setItem('teacher_settings', JSON.stringify(settings));
+    }
+  }, [teacherInfo, themeColor, isDarkMode, user]);
 
   const handleGoogleLogin = async () => {
     try {
@@ -279,7 +342,7 @@ export default function App() {
   const handleDeletePlan = async (planId: string) => {
     if (!user) return;
     if (!confirm("Voulez-vous vraiment supprimer cette fiche ?")) return;
-    
+
     try {
       await deleteDoc(doc(db, 'fiches', planId));
       loadUserPlans(user.uid);
@@ -551,7 +614,7 @@ export default function App() {
 
     setIsGenerating(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
       const model = "gemini-2.5-flash";
 
       const levelName = LEVELS.find(l => l.id === selectedLevel)?.name || selectedLevel;
@@ -620,7 +683,7 @@ export default function App() {
       };
 
       setCurrentPlan(newPlan);
-      
+
       // Save to Firestore if user is logged in
       if (user) {
         try {
@@ -637,8 +700,13 @@ export default function App() {
 
       setHistory(prev => [newPlan, ...prev]);
       setIsEditingPlan(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Generation error:", error);
+      if (error.message?.includes('429') || error.message?.includes('quota')) {
+        alert("Limite de quota atteinte. L'API Gemini est actuellement très sollicitée sur votre compte gratuit. Veuillez patienter environ une minute avant de réessayer.");
+      } else {
+        alert("Une erreur est survenue lors de la génération. Veuillez vérifier votre connexion ou réessayer plus tard.");
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -716,7 +784,7 @@ export default function App() {
                 <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-2">Sauvegarde Cloud</p>
                 <p className="text-[10px] text-slate-400 leading-tight">Connectez-vous pour sauvegarder vos fiches automatiquement.</p>
               </div>
-              
+
               {!showEmailAuth ? (
                 <div className="space-y-2">
                   <button
@@ -796,7 +864,7 @@ export default function App() {
                 <p className={`text-sm font-bold truncate ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
                   {user.displayName || 'Utilisateur'}
                 </p>
-                <button 
+                <button
                   onClick={handleLogout}
                   className="text-[10px] text-slate-500 hover:text-red-500 font-bold uppercase tracking-wider transition-colors"
                 >
@@ -825,8 +893,8 @@ export default function App() {
               <button
                 onClick={() => setIsEditingPlan(!isEditingPlan)}
                 className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-sm ${isEditingPlan
-                    ? `bg-amber-100 text-amber-700 border border-amber-200`
-                    : `${isDarkMode ? 'bg-slate-800 text-slate-300 border-slate-700' : 'bg-white text-slate-600 border-slate-200'} border`
+                  ? `bg-amber-100 text-amber-700 border border-amber-200`
+                  : `${isDarkMode ? 'bg-slate-800 text-slate-300 border-slate-700' : 'bg-white text-slate-600 border-slate-200'} border`
                   }`}
               >
                 {isEditingPlan ? (
@@ -1028,15 +1096,15 @@ export default function App() {
                       className={`flex items-center gap-2 bg-${themeClass}-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-${themeClass}-700 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                       {isGenerating ? (
-                        <>
+                        <span key="loading" className="flex items-center gap-2">
                           <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                           Génération...
-                        </>
+                        </span>
                       ) : (
-                        <>
+                        <span key="idle" className="flex items-center gap-2">
                           <Sparkles size={20} />
                           Générer la Fiche
-                        </>
+                        </span>
                       )}
                     </button>
                   </div>
@@ -1275,7 +1343,7 @@ export default function App() {
                           <span className="text-[10px] text-slate-400 font-medium">
                             {new Date(plan.timestamp).toLocaleDateString()}
                           </span>
-                          <button 
+                          <button
                             onClick={(e) => { e.stopPropagation(); handleDeletePlan(plan.id); }}
                             className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
                           >
