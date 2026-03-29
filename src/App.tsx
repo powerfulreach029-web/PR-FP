@@ -197,6 +197,7 @@ export default function App() {
   const [teacherInfo, setTeacherInfo] = useState<TeacherInfo>({ name: '', school: '', specialty: '' });
   const [themeColor, setThemeColor] = useState('green');
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [geminiKey, setGeminiKey] = useState('');
 
   // Firebase Auth State
   const [user, setUser] = useState<User | null>(null);
@@ -220,6 +221,7 @@ export default function App() {
             setTeacherInfo(parsed.teacherInfo || { name: '', school: '', specialty: '' });
             setThemeColor(parsed.themeColor || 'green');
             setIsDarkMode(parsed.isDarkMode || false);
+            setGeminiKey(parsed.geminiKey || '');
           } catch (e) { console.error("Error parsing local settings", e); }
         }
       }
@@ -266,6 +268,7 @@ export default function App() {
         if (data.teacherInfo) setTeacherInfo(data.teacherInfo);
         if (data.themeColor) setThemeColor(data.themeColor);
         if (data.isDarkMode !== undefined) setIsDarkMode(data.isDarkMode);
+        if (data.geminiKey) setGeminiKey(data.geminiKey);
       }
     } catch (error) {
       console.error("Error loading user settings:", error);
@@ -285,7 +288,7 @@ export default function App() {
 
   // Sync settings to Firestore or LocalStorage
   useEffect(() => {
-    const settings = { teacherInfo, themeColor, isDarkMode };
+    const settings = { teacherInfo, themeColor, isDarkMode, geminiKey };
     if (user) {
       const timeoutId = setTimeout(() => {
         saveUserSettings(user.uid, settings);
@@ -294,7 +297,7 @@ export default function App() {
     } else {
       localStorage.setItem('teacher_settings', JSON.stringify(settings));
     }
-  }, [teacherInfo, themeColor, isDarkMode, user]);
+  }, [teacherInfo, themeColor, isDarkMode, geminiKey, user]);
 
   const handleGoogleLogin = async () => {
     try {
@@ -610,11 +613,18 @@ export default function App() {
   };
 
   const generatePlan = async () => {
+    const activeKey = geminiKey || import.meta.env.VITE_GEMINI_API_KEY;
+    
     if (!action || !isTeacherInfoComplete) return;
+    if (!activeKey) {
+      alert("Clé API manquante : Veuillez renseigner votre clé Gemini dans l'onglet 'Paramètres' pour générer des fiches.");
+      setActiveTab('settings');
+      return;
+    }
 
     setIsGenerating(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
+      const ai = new GoogleGenAI({ apiKey: activeKey });
       const model = "gemini-2.5-flash";
 
       const levelName = LEVELS.find(l => l.id === selectedLevel)?.name || selectedLevel;
@@ -1422,6 +1432,46 @@ export default function App() {
                 </section>
 
                 {/* Theme & Display */}
+                <section className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-2xl border p-8 max-w-2xl`}>
+                  <h3 className={`text-lg font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-800'} mb-6 flex items-center gap-2`}>
+                    <BrainCircuit size={20} className={`text-${themeClass}-500`} />
+                    Intelligence Artificielle
+                  </h3>
+                  <div className="space-y-6">
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <label className={`text-sm font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>Clé API Gemini (Google) *</label>
+                        <a 
+                          href="https://aistudio.google.com/app/apikey" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className={`text-[10px] text-${themeClass}-500 hover:underline font-bold`}
+                        >
+                          Obtenir une clé gratuite →
+                        </a>
+                      </div>
+                      <input
+                        type="password"
+                        value={geminiKey}
+                        onChange={(e) => setGeminiKey(e.target.value)}
+                        placeholder="Collez votre clé API ici..."
+                        className={`w-full px-4 py-2 rounded-lg border ${isDarkMode ? 'bg-slate-700 border-slate-600 text-slate-100' : 'bg-white border-slate-200 text-slate-900'} outline-none focus:ring-2 focus:ring-${themeClass}-500/20`}
+                      />
+                      <p className="text-[10px] text-slate-500 italic">Votre clé est stockée localement dans votre navigateur et synchronisée avec votre compte sécurisé.</p>
+                    </div>
+
+                    <div className={`flex items-center gap-3 p-4 rounded-xl ${isDarkMode ? 'bg-slate-700/30' : 'bg-slate-50'} border ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isDarkMode ? 'bg-slate-800' : 'bg-white'} shadow-sm text-${themeClass}-500`}>
+                        <BrainCircuit size={20} />
+                      </div>
+                      <div>
+                        <p className={`text-xs font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-700'}`}>Modèle : Gemini 2.5 Flash</p>
+                        <p className="text-[10px] text-slate-500">Optimisé pour la rapidité et la structuration APC.</p>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
                 <section className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-2xl border p-8 max-w-2xl`}>
                   <h3 className={`text-lg font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-800'} mb-6 flex items-center gap-2`}>
                     <Palette size={20} className={`text-${themeClass}-500`} />
