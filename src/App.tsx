@@ -197,6 +197,7 @@ export default function App() {
   const [teacherInfo, setTeacherInfo] = useState<TeacherInfo>({ name: '', school: '', specialty: '' });
   const [themeColor, setThemeColor] = useState('green');
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
 
   // Firebase Auth State
   const [user, setUser] = useState<User | null>(null);
@@ -208,9 +209,11 @@ export default function App() {
       setUser(currentUser);
       setIsAuthLoading(false);
       if (currentUser) {
+        setIsSettingsLoaded(false); // Reset before loading
         loadUserPlans(currentUser.uid);
         loadUserSettings(currentUser.uid);
       } else {
+        setIsSettingsLoaded(true); // No cloud data to load, local is primary
         setSavedPlans([]);
         // Local preference loading if not logged in
         const localSettings = localStorage.getItem('teacher_settings');
@@ -267,8 +270,10 @@ export default function App() {
         if (data.themeColor) setThemeColor(data.themeColor);
         if (data.isDarkMode !== undefined) setIsDarkMode(data.isDarkMode);
       }
+      setIsSettingsLoaded(true);
     } catch (error) {
       console.error("Error loading user settings:", error);
+      setIsSettingsLoaded(true); // Don't block saving forever on error
     }
   };
 
@@ -287,14 +292,17 @@ export default function App() {
   useEffect(() => {
     const settings = { teacherInfo, themeColor, isDarkMode };
     if (user) {
-      const timeoutId = setTimeout(() => {
-        saveUserSettings(user.uid, settings);
-      }, 1000); // Debounce to avoid too many writes
-      return () => clearTimeout(timeoutId);
+      // Only save if data has been successfully loaded from the cloud or was already marked loaded
+      if (isSettingsLoaded) {
+        const timeoutId = setTimeout(() => {
+          saveUserSettings(user.uid, settings);
+        }, 1200); // Small debounce
+        return () => clearTimeout(timeoutId);
+      }
     } else {
       localStorage.setItem('teacher_settings', JSON.stringify(settings));
     }
-  }, [teacherInfo, themeColor, isDarkMode, user]);
+  }, [teacherInfo, themeColor, isDarkMode, user, isSettingsLoaded]);
 
   const handleGoogleLogin = async () => {
     try {
