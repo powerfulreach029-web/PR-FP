@@ -659,7 +659,10 @@ export default function App() {
         Utilise le titre de la leçon "${lessonTitle}" comme base pour le titre de la séance si approprié.
         Indique bien qu'il s'agit de la séance ${sessionNumber} sur un total de ${totalSessions}.
 
-        Retourne UNIQUEMENT un objet JSON valide avec la structure suivante :
+        Retourne UNIQUEMENT un objet JSON strictement valide.
+        IMPORTANT: Pour les formules LaTeX (ex: \\frac, \\times, \\sqrt), tu DOIS impérativement doubler les antislashes ("\\\\") pour que le format JSON ne soit pas corrompu.
+        
+        Structure attendue :
         {
           "title": "Titre de la séance",
           "lessonTitle": "${lessonTitle}",
@@ -689,7 +692,23 @@ export default function App() {
         }
       });
 
-      const data = JSON.parse(result.text || '{}');
+      const rawText = result.text || '{}';
+      let data;
+      try {
+        // Tentative de parsing standard
+        data = JSON.parse(rawText);
+      } catch (parseError) {
+        console.warn("Échec du parsing JSON standard, tentative de réparation des antislashes...", parseError);
+        try {
+          // Correction des antislashes mal échappés (cas typique du LaTeX \frac -> \\frac)
+          const repairedText = rawText
+            .replace(/\\(?![/"\\bfnrt]|u[0-9a-fA-F]{4})/g, '\\\\');
+          data = JSON.parse(repairedText);
+        } catch (repairError) {
+          console.error("Erreur fatale de parsing JSON. Réponse brute :", rawText);
+          throw new Error("La réponse de l'IA n'est pas au format JSON valide. Veuillez réessayer.");
+        }
+      }
       const newPlan: LessonPlan = {
         ...data,
         id: crypto.randomUUID(),
